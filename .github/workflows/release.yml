@@ -1,0 +1,97 @@
+name: Check and build
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, ubuntu-22.04, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install build and media tools
+        run: python -m pip install '.[bundled]' pyinstaller
+      - name: Real FFmpeg regressions
+        run: python -m unittest discover -s tests -v
+      - name: Build portable archive
+        run: python scripts/build_portable.py
+      - name: Exercise packaged CLI on real media
+        run: |
+          python - <<'PY'
+          import json, os, pathlib, subprocess, sys, tempfile
+          import imageio_ffmpeg
+          sys.path.insert(0, 'tests')
+          from test_media import MediaTests
+          executable = pathlib.Path('dist/classic-maker') / ('classic-maker.exe' if os.name == 'nt' else 'classic-maker')
+          environment = {**os.environ, 'CLASSIC_MAKER_FFMPEG': imageio_ffmpeg.get_ffmpeg_exe()}
+          subprocess.run([str(executable), 'doctor'], env=environment, check=True)
+          MediaTests.setUpClass()
+          try:
+              with tempfile.TemporaryDirectory() as directory:
+                  root = pathlib.Path(directory)
+                  # Exercise first-run HTTPS setup through the real packaged local app.
+                  from urllib.request import Request, urlopen
+                  data = root / 'data'
+                  server_environment = {**os.environ, 'CLASSIC_MAKER_DATA': str(data)}
+                  server_environment.pop('CLASSIC_MAKER_FFMPEG', None)
+                  process = subprocess.Popen([str(executable), 'serve', '--no-browser'],
+                                             env=server_environment, stdout=subprocess.PIPE, text=True)
+                  try:
+                      url = process.stdout.readline().strip().split('Classic Maker: ', 1)[1]
+                      config = json.load(urlopen(url + '/api/config', timeout=20))
+                      request = Request(url + '/api/setup', data=b'{}',
+                                        headers={'X-Classic-Maker-Token': config['token'], 'Content-Type': 'application/json'})
+                      installed = json.load(urlopen(request, timeout=180))
+                      assert installed['ok']
+                      environment = {**os.environ, 'CLASSIC_MAKER_FFMPEG': installed['ffmpeg']}
+                  finally:
+                      process.terminate()
+                      process.wait(timeout=20)
+                      process.stdout.close()
+                  project = root / 'movie.json'
+                  project.write_text(json.dumps(MediaTests().project()), encoding='utf-8')
+                  output = root / 'movie.mp4'
+                  subprocess.run([str(executable), 'render', str(project), '-o', str(output)], env=environment, check=True)
+                  result = json.loads(subprocess.check_output([str(executable), 'probe', str(output)], env=environment, text=True))
+                  assert abs(result['duration'] - 1.0) < 0.1 and result['hasAudio'], result
+          finally:
+              MediaTests.tearDownClass()
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: portable-${{ matrix.os }}
+          path: dist/classic-maker-*.zip
+          if-no-files-found: error
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Publish portable downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd release-assets
+          sha256sum *.zip > SHA256SUMS.txt
+          cd ..
+          gh release create "$GITHUB_REF_NAME" release-assets/* --verify-tag --title "Classic Maker $GITHUB_REF_NAME" --notes "Simple local video editing, dark by default. Download and extract the ZIP for your OS, then run classic-maker. If FFmpeg is missing, click Set up FFmpeg in the editor; it downloads directly from PyPI. See README and docs/getting-started.md for platform details. These builds are unsigned. Source code is available in the tag archives below; licenses and third-party notices are included."

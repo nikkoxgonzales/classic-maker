@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "classic-maker"
+version = "0.1.0"
+description = "A lightweight, beginner-friendly local video editor inspired by Windows Movie Maker."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+authors = [{name = "Nikko Gonzales"}]
+keywords = ["video-editor", "ffmpeg", "movie-maker"]
+dependencies = []
+
+[project.optional-dependencies]
+bundled = ["imageio-ffmpeg==0.6.0"]
+
+[project.scripts]
+classic-maker = "classic_maker.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/nikkoxgonzales/classic-maker"
+Issues = "https://github.com/nikkoxgonzales/classic-maker/issues"
+
+[tool.setuptools.packages.find]
+include = ["classic_maker*"]
+
+[tool.setuptools.package-data]
+classic_maker = ["web/*.html", "web/*.css", "web/*.js", "web/*.svg", "cacert.pem", "cacert.LICENSE"]

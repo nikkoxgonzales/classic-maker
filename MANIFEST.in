@@ -1,0 +1,14 @@
+include LICENSE README.md THIRD_PARTY.md pyproject.toml launcher.py
+recursive-include classic_maker *.py *.html *.css *.js *.svg *.pem *.LICENSE
+recursive-include docs *.md *.png
+recursive-include assets *.ico
+recursive-include scripts *.py
+recursive-include tests *.py
+recursive-include .github *.yml
+prune .claude
+prune .smoke
+prune .venv
+prune build
+prune dist
+prune artifacts
+exclude AGENTS.md CLAUDE.md .env .env.example

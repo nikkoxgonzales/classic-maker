@@ -1,0 +1,44 @@
+# Secrets and local config
+.env
+.env.*
+!.env.example
+.claude/settings.local.json
+# Backups/copies of local settings carry the same secrets (env API keys)
+.claude/settings.local.json?*
+
+# Local-only contributor harness; never publish
+.claude/
+AGENTS.md
+CLAUDE.md
+.agents/
+.omp/
+.env.example
+*.bak
+
+# Scratch / experiments (see AGENTS.md)
+.claude_temp/
+
+# Build output and deps
+node_modules/
+dist/
+build/
+*.egg-info/
+*.spec
+__pycache__/
+*.py[cod]
+.venv/
+.smoke/
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor noise
+.vscode/
+.idea/
+*.swp
+*~
+
+# Playwright + generated artifacts
+artifacts/
