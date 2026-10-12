@@ -51,22 +51,31 @@ If this fails, check internet access or install FFmpeg with your OS package mana
 
 Normal editing and exporting work offline after setup. No media is sent to PyPI.
 
-## Import → trim → arrange → export
+## Import → arrange → play → export
 
-1. Click **Import clips** and choose one or more video files. Each is copied into
-   app storage so you can save and reopen the project later.
-2. Select a clip in **Your clips** or the storyboard. Play it in **Preview**.
-3. Set **Start** and **End** in seconds. You can pause the preview and choose
-   **Use current playhead** beneath either field. Start must be before End.
-4. Tick **Mute this clip** to remove its sound. Silent clips work without extra steps.
-5. Use **Earlier** and **Later** to change order. **Remove from movie** removes an
-   edit, not a source file. There are no transitions: clips join with straight cuts.
-6. Choose **Play movie** to preview the clips in order. The browser switches source
-   videos; short loading gaps in preview are not added to the exported movie.
-7. Choose **720p** for a smaller file or **1080p** for full HD. Both are landscape
-   16:9 at 30 fps. Portrait and unusual aspect ratios get black bars, not cropping.
-8. Click **Export movie**. Wait for completion, then **Download your movie**.
-   The result is an MP4 with H.264 video and AAC stereo audio.
+The editor has three lanes: **Video** (top), **Audio** (middle), and **Effects**
+(bottom), with a time ruler and a draggable playhead.
+
+1. Click **Import media** for video files, or **Add audio** for music/voice.
+   You can also drag files from the media list (or straight from your file
+   manager onto a lane).
+2. **Video lane:** clips play back-to-back in order. Drag a clip sideways to
+   reorder, drag its left/right edges to trim, or click **✂ Split** with the
+   playhead inside a clip (keyboard: `S`). Selected clips open numeric controls
+   on the right — every drag has a typed alternative.
+3. **Audio lane:** each video shows a linked `♪` strip for its original sound
+   (click to edit that video). Use **Detach audio to its own clip** to pull sound
+   out and move it freely. Music/voice blocks have `at` (movie position),
+   source trim, volume, and mute.
+4. **Effects lane:** pick Brightness/Contrast/Grayscale/Sepia, click **＋ Effect**,
+   then drag the block and adjust amount, start, and duration on the right.
+   Effects hold for their range — there are no animations or transitions.
+5. **Play** follows the timeline across clips; `Space` toggles play, arrow keys
+   step frames, `Ctrl+Z` / `Ctrl+Shift+Z` undo and redo. The clock pauses while
+   a video loads so audio and picture don't drift apart.
+6. Choose **720p** or **1080p**, click **Export movie**, wait, then **Download
+   your movie**. The result is H.264/AAC MP4 at exact 30 fps with all three
+   tracks combined.
 
 Only one export runs at a time. Cancel stops encoding and removes temporary work;
 your originals and any previous output are unchanged. Editing during export does

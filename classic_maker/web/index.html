@@ -1,21 +1,74 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Classic Maker — make a little movie</title><link rel="icon" href="/logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark">
+  <title>Classic Maker — make a little movie</title>
+  <link rel="icon" href="/logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script>
+</head>
 <body>
-<header class="topbar"><a class="brand" href="/" aria-label="Classic Maker home"><img src="/logo.svg" width="40" height="40" alt=""><span>classic<span class="brand-light">maker</span><small>A little less editor. A little more movie.</small></span></a><span class="local-badge"><span class="dot"></span> LOCAL & PRIVATE</span><button id="about-button" class="quiet">About</button></header>
+<header class="topbar">
+  <a class="brand" href="/" aria-label="Classic Maker home"><img src="/logo.svg" width="38" height="38" alt=""><span>classic<span class="brand-light">maker</span><small>A little less editor. A little more movie.</small></span></a>
+  <span class="local-badge"><span class="dot"></span> LOCAL & PRIVATE</span><button id="about-button" class="quiet">About</button>
+</header>
 <main>
-<section class="toolbar" aria-label="Project tools"><div class="toolbar-actions"><button id="import-button" class="primary">＋ Import clips</button><button id="open-button">Open project</button><button id="save-button">Save project</button></div><label class="project-name">PROJECT <input id="project-name" value="My first movie" maxlength="200" aria-label="Project name"></label></section>
-<input type="file" id="media-files" accept="video/*,.mkv,.avi,.mov,.wmv,.m4v,.webm,.mp4" multiple hidden><input type="file" id="project-file" accept=".json,application/json" hidden>
-<div id="notice" class="notice" role="status" aria-live="polite">Getting your editing room ready…</div>
-<div id="setup-area" class="notice" hidden><p>One small setup, then you're ready. Download FFmpeg directly from the imageio-ffmpeg publisher on PyPI (about 20–31 MB). Internet is needed only for this step. Your videos are never sent.</p><button id="setup-button">Set up FFmpeg</button></div>
-<div class="workspace">
-<aside class="library panel"><div class="section-heading"><h2>Your clips</h2><span id="clip-count" class="count">0</span></div><p class="subtle">Everything you need. Nothing you don't.</p><div id="clip-list" class="clip-list"></div><div id="library-empty" class="library-empty"><span class="film-symbol" aria-hidden="true">▤</span><h3>Start with a few moments</h3><p>Import videos from your computer.<br>Your originals stay untouched.</p><button id="empty-import">Choose videos</button></div><p class="library-footnote">On your computer. Not in the cloud.</p></aside>
-<section class="preview panel" aria-labelledby="preview-title"><div class="section-heading"><h2 id="preview-title">Preview</h2><span id="preview-label" class="subtle">No clip selected</span></div><div class="video-stage"><video id="player" controls preload="metadata" playsinline></video><div id="preview-empty"><img src="/logo.svg" width="76" height="76" alt=""><h1>Make a little movie.</h1><p>The good parts, in the right order.</p><div class="steps"><span><b>1</b> Import</span><span><b>2</b> Trim & arrange</span><span><b>3</b> Export</span></div></div></div><div class="preview-footer"><button id="play-movie" disabled>▶ Play movie</button><span id="play-state" class="subtle">Straight cuts. No fuss.</span></div></section>
-<aside class="inspector panel"><div class="section-heading"><h2>The good parts</h2></div><p class="subtle">Keep what matters. Trim the rest.</p><div id="trim-empty" class="trim-empty">Select a clip to make it yours.</div><fieldset id="trim-controls" disabled><legend class="sr-only">Selected clip controls</legend><h3 id="selected-name">Selected clip</h3><label>Start <span>seconds</span><input id="trim-start" type="number" min="0" step="0.01" value="0"></label><button id="set-start" class="small quiet">Use current playhead</button><label>End <span>seconds</span><input id="trim-end" type="number" min="0" step="0.01" value="0"></label><button id="set-end" class="small quiet">Use current playhead</button><p id="trim-duration" class="duration-note"></p><label class="checkbox"><input id="mute" type="checkbox"> Mute this clip</label><div class="move-actions"><button id="move-left" title="Move clip earlier">← Earlier</button><button id="move-right" title="Move clip later">Later →</button></div><button id="remove" class="danger quiet">Remove from movie</button></fieldset></aside>
-</div>
-<section class="storyboard panel"><div class="section-heading"><div><h2>Your movie <span class="subtle">· left to right</span></h2><p class="subtle">Use Earlier / Later to put your story in order.</p></div><span id="total-duration" class="total">00:00</span></div><div id="storyboard" class="storyboard-track"><p class="subtle">Your story starts here. Import your first clip.</p></div></section>
-<section class="export-bar"><div><strong>Ready when you are.</strong><p class="subtle">One simple MP4. Easy to share, easy to keep.</p></div><div class="export-actions"><label class="resolution-label">Quality <select id="resolution"><option value="720p">720p · smaller file</option><option value="1080p">1080p · full HD</option></select></label><button id="export-button" class="primary" disabled>Export movie ↗</button></div><div id="export-progress" hidden><progress id="progress" max="100" value="0"></progress><span id="progress-label">Preparing…</span><button id="cancel-export" class="small">Cancel</button><a id="download" class="download" hidden>Download your movie ↓</a></div></section>
-<footer><span>Made for moments, not production studios.</span><span>FFmpeg underneath. Simplicity on top.</span></footer>
+  <section class="toolbar" aria-label="Project tools">
+    <div class="toolbar-actions"><button id="import-button" class="primary">＋ Import media</button><button id="audio-import">♫ Add audio</button><button id="open-button">Open project</button><button id="save-button">Save project</button><button id="undo" title="Undo (Ctrl+Z)" disabled>↶</button><button id="redo" title="Redo (Ctrl+Shift+Z)" disabled>↷</button></div>
+    <label class="project-name">PROJECT <input id="project-name" value="My first movie" maxlength="200" aria-label="Project name"></label>
+  </section>
+  <input type="file" id="media-files" accept="video/*,audio/*,.mkv,.avi,.mov,.wmv,.m4v,.mp4,.webm,.mp3,.wav,.m4a,.flac,.ogg,.aac" multiple hidden>
+  <input type="file" id="audio-files" accept="audio/*,.mp3,.wav,.m4a,.flac,.ogg,.aac" multiple hidden>
+  <input type="file" id="project-file" accept=".json,application/json" hidden>
+  <div id="notice" class="notice" role="status" aria-live="polite">Getting your editing room ready…</div>
+  <div id="setup-area" class="notice" hidden><p>One small setup, then you're ready. Download verified FFmpeg directly from PyPI (about 20–31 MB). Your media is never sent.</p><button id="setup-button">Set up FFmpeg</button></div>
+  <div class="workspace">
+    <aside class="library panel">
+      <div class="section-heading"><h2>Your media</h2><span id="clip-count" class="count">0</span></div><p class="subtle">Drag a source onto a track to use it again.</p>
+      <div id="clip-list" class="clip-list"></div>
+      <div id="library-empty" class="library-empty"><span class="film-symbol" aria-hidden="true">▤</span><h3>Start with a few moments</h3><p>Import videos, music, or voice recordings.<br>Your originals stay untouched.</p><button id="empty-import">Choose media</button></div>
+      <p class="library-footnote">Drop files here or onto the timeline.</p>
+    </aside>
+    <section class="preview panel" aria-labelledby="preview-title">
+      <div class="section-heading"><h2 id="preview-title">Movie preview</h2><span id="preview-label" class="subtle">No video yet</span></div>
+      <div class="video-stage"><video id="player" preload="metadata" playsinline></video><div id="preview-empty"><img src="/logo.svg" width="64" height="64" alt=""><h1>Make a little movie.</h1><p>Video. Sound. A little finishing touch.</p><div class="steps"><span><b>1</b> Import</span><span><b>2</b> Arrange your tracks</span><span><b>3</b> Export</span></div></div><span id="buffering" class="buffering" hidden>Loading preview…</span></div>
+      <div class="transport"><button id="jump-start" title="Go to beginning" disabled>↤</button><button id="play-movie" disabled>▶ Play</button><button id="step-back" title="Previous frame" disabled>‹</button><button id="step-forward" title="Next frame" disabled>›</button><output id="playhead-time">00:00.00</output><span class="subtle">/ <span id="total-duration">00:00.00</span></span><span id="play-state" class="subtle">Space to play · drag to seek</span></div>
+      <input id="seek-bar" type="range" min="0" max="0" step="0.01" value="0" aria-label="Movie position" disabled>
+    </section>
+    <aside class="inspector panel">
+      <div class="section-heading"><h2>Selected item</h2><span id="selection-kind" class="count">—</span></div>
+      <p id="inspector-empty" class="trim-empty">Click a clip or effect on a track.<br>Drag its edges to trim.</p>
+      <div id="selection-controls" hidden>
+        <h3 id="selected-name">Selected clip</h3>
+        <div id="media-inspector">
+          <label id="placement-row">Movie position <span>seconds</span><input id="clip-at" type="number" min="0" step="0.01" value="0"></label>
+          <div class="trim-inputs"><label>Source start<input id="trim-start" type="number" min="0" step="0.01" value="0"></label><label>Source end<input id="trim-end" type="number" min="0" step="0.01" value="0"></label></div>
+          <div class="playhead-trim"><button id="set-start" class="small quiet">Start at playhead</button><button id="set-end" class="small quiet">End at playhead</button></div>
+          <p id="trim-duration" class="duration-note"></p>
+          <label class="volume-label">Volume <output id="volume-value">100%</output><input id="volume" type="range" min="0" max="100" step="1" value="100"></label>
+          <label class="checkbox"><input id="mute" type="checkbox"> Mute this clip</label>
+          <div id="video-actions" class="move-actions"><button id="move-left" class="small">← Earlier</button><button id="move-right" class="small">Later →</button></div>
+          <button id="detach-audio" class="small">Detach audio to its own clip</button>
+        </div>
+        <div id="effect-inspector" hidden>
+          <label>Effect<select id="effect-type"><option value="brightness">Brightness</option><option value="contrast">Contrast</option><option value="grayscale">Grayscale</option><option value="sepia">Sepia</option></select></label>
+          <div class="trim-inputs"><label>Effect start<input id="effect-at" type="number" min="0" step="0.01"></label><label>Effect duration<input id="effect-duration" type="number" min="0.01" step="0.01"></label></div>
+          <label class="volume-label">Amount <output id="effect-value-label"></output><input id="effect-value" type="range" min="0" max="1" step="0.01"></label>
+          <p class="duration-note">Applies over this movie-time range, including across video cuts.</p>
+        </div>
+        <div class="selection-actions"><button id="split-selected" class="small">✂ Split at playhead</button><button id="remove" class="danger quiet small">Remove</button></div>
+      </div>
+    </aside>
+  </div>
+  <section id="timeline" class="timeline panel" aria-label="Movie timeline">
+    <div class="timeline-header"><div><h2>Your timeline</h2><p class="subtle">Drag clips to arrange · drag edges to trim · click the ruler to seek</p></div><div class="timeline-tools"><label class="effect-picker"><select id="effect-preset" aria-label="Effect to add"><option value="grayscale">Grayscale</option><option value="sepia">Sepia</option><option value="brightness">Brightness</option><option value="contrast">Contrast</option></select></label><button id="add-effect" class="small" disabled>＋ Effect</button><button id="split" class="small" disabled>✂ Split</button><label class="zoom-label">Zoom<input id="zoom" type="range" min="20" max="180" value="80" step="5" aria-label="Timeline zoom"></label><button id="fit-timeline" class="small">Fit</button></div></div>
+    <div class="timeline-body">
+      <div class="track-labels"><div class="ruler-label">TIME</div><div class="video-label"><strong>▤ Video</strong><small>Clips in order</small></div><div id="audio-track-label" class="audio-label"><strong>♫ Audio</strong><small>Linked sound<br>+ music & voice</small></div><div id="effects-track-label" class="effects-label"><strong>◐ Effects</strong><small>Timed adjustments</small></div></div>
+      <div id="timeline-scroll" class="timeline-scroll"><div id="timeline-world" class="timeline-world" tabindex="0" aria-label="Timeline editing area"><div id="ruler" class="ruler"></div><div id="video-lane" class="lane video-lane" data-lane="video"></div><div id="audio-lane" class="lane audio-lane" data-lane="audio"></div><div id="effects-lane" class="lane effects-lane" data-lane="effects"></div><div id="movie-end" class="movie-end" aria-hidden="true"></div><div id="playhead" class="playhead"><button id="playhead-handle" aria-label="Drag movie playhead" title="Drag to seek; arrow keys step one frame"></button></div></div></div>
+    </div>
+    <div class="timeline-footer"><span id="timeline-hint">Import video to set your movie length. Music and effects can then be placed anywhere.</span><span>Video trims close gaps · original sound moves with video</span></div>
+  </section>
+  <section class="export-bar"><div><strong>Ready when you are.</strong><p class="subtle">Your tracks, together in one shareable MP4.</p></div><div class="export-actions"><label class="resolution-label">Quality <select id="resolution"><option value="720p">720p · smaller file</option><option value="1080p">1080p · full HD</option></select></label><button id="export-button" class="primary" disabled>Export movie ↗</button></div><div id="export-progress" hidden><progress id="progress" max="100" value="0"></progress><span id="progress-label">Preparing…</span><button id="cancel-export" class="small">Cancel</button><a id="download" class="download" hidden>Download your movie ↓</a></div></section>
+  <footer><span>Made for moments, not production studios.</span><span>FFmpeg underneath. Simplicity on top.</span></footer>
 </main>
-<dialog id="about"><form method="dialog"><button class="dialog-close" aria-label="Close About">×</button></form><img src="/logo.svg" width="64" height="64" alt="Classic Maker logo"><h2>classic maker</h2><p class="about-tagline">Simple editing. Just like you remember.</p><p>I'm tired of using “open source” bloatware. For non-hardcore creators like me, I miss Windows Movie Maker: simple, easy to install, lightweight, and it just works.</p><p>Classic Maker keeps that spirit alive. Import a few clips, keep the good parts, put them in order, and make a movie. No animations or effects. No accounts. No cloud.</p><p>Created by <strong>Nikko Gonzales</strong><br><a href="https://github.com/nikkoxgonzales" target="_blank" rel="noopener noreferrer">github.com/nikkoxgonzales ↗</a></p><p class="subtle">© 2026 Nikko Gonzales · <span id="version">0.1.0</span><br><a href="https://github.com/nikkoxgonzales/classic-maker/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">GPL-3.0-or-later</a> · Free to share and modify. No warranty.<br>Inspired by Windows Movie Maker; not affiliated with Microsoft.</p><a href="https://github.com/nikkoxgonzales/classic-maker" target="_blank" rel="noopener noreferrer">Source code & documentation ↗</a></dialog>
-</body></html>
+<dialog id="about"><form method="dialog"><button class="dialog-close" aria-label="Close About">×</button></form><img src="/logo.svg" width="64" height="64" alt="Classic Maker logo"><h2>classic maker</h2><p class="about-tagline">Simple editing. Just like you remember.</p><p>I'm tired of using “open source” bloatware. For non-hardcore creators like me, I miss Windows Movie Maker: simple, easy to install, lightweight, and it just works.</p><p>Classic Maker keeps that spirit alive. Arrange video, add music or voice, and put a few simple finishing touches on your movie. No animated effects or transitions. No accounts. No cloud.</p><p>Created by <strong>Nikko Gonzales</strong><br><a href="https://github.com/nikkoxgonzales" target="_blank" rel="noopener noreferrer">github.com/nikkoxgonzales ↗</a></p><p class="subtle">© 2026 Nikko Gonzales · <span id="version">0.2.0</span><br><a href="https://github.com/nikkoxgonzales/classic-maker/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">GPL-3.0-or-later</a> · Free to share and modify. No warranty.<br>Inspired by Windows Movie Maker; not affiliated with Microsoft.</p><a href="https://github.com/nikkoxgonzales/classic-maker" target="_blank" rel="noopener noreferrer">Source code & documentation ↗</a></dialog>
+</body>
+</html>

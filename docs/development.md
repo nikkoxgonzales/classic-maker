@@ -22,24 +22,32 @@ python -m classic_maker doctor
 python -m classic_maker serve --no-browser --port 8765
 ```
 
-The nine real-FFmpeg/HTTP tests check trim/order and mixed portrait/silent media,
-retained audio, mute, invalid/nonfinite trims, relative project paths, original
+The fourteen real-FFmpeg/HTTP tests check trim/reorder, mixed portrait/silent
+media, retained audio, mute, invalid/nonfinite trims, relative paths, original
 preservation, overwrite precedence, cancellation cleanup, even frame spacing
-across cuts, and shutdown racing with a pending export request. They create small
-isolated videos in temporary directories. Optional system ffprobe adds resolution
-and frame-rate assertions; the app itself does not require ffprobe.
+across cuts, v1→v2 migration, audio-only probing, audio placement/gain mixing,
+timed effect ranges, and shutdown racing a pending export. They create small
+isolated videos/audio in temporary directories. Optional system ffprobe adds
+resolution and frame-rate assertions; the app itself does not require ffprobe.
 
 After UI or media changes, **also run the real editor**:
 
-1. Import a landscape clip with audio and a silent portrait clip.
-2. Trim, move a clip earlier/later, and mute a clip.
-3. Play movie: selected clips advance in storyboard order and stop at their trims.
-4. Save a project, remove a clip, reopen the saved project, and check edits survived.
-5. Export 720p and 1080p; download and play the MP4. Check duration, order, sound,
-   fit/black bars, and that originals are unchanged.
-6. Cancel an export; verify no completed output is offered.
-7. Check About attribution, keyboard navigation, empty state, and narrow layout.
-8. Use the saved project with CLI `render`. Confirm stdout JSON and a playable MP4.
+1. Import two videos (one silent/portrait) plus an MP3 via Add audio.
+2. Drag-reorder video clips, drag trim edges, split at the playhead (S), and
+   confirm the ruler/playhead/zoom and undo/redo behave.
+3. Detach one clip's sound, move the audio block, and change its volume; confirm
+   linked source-sound strips follow their video clips.
+4. Add a Grayscale effect, drag its range, and watch the preview filter change
+   only while the playhead is inside it.
+5. Play across a clip boundary: clock, preview label, and independent audio stay
+   in sync; pause during a brief load and confirm no drift.
+6. Save the project (v2 JSON with tracks), reload, reopen, and check every lane.
+7. Export 720p and 1080p; download and verify with `ffprobe`: duration matches
+   the video-track total, CFR 30/1, H.264+AAC, effects visible only in their
+   range, audio present at its offset, originals unchanged.
+8. Cancel an export; verify no completed output is offered.
+9. Check keyboard shortcuts, narrow layout, empty states, and About attribution.
+10. Use the saved project with CLI `render`. Confirm stdout JSON and a playable MP4.
 
 A passing unit suite or syntax check alone is not proof of a working editor.
 Keep permanent tests focused on behavior/boundaries, not copied implementation

@@ -18,28 +18,40 @@ production studio. Your browser is the interface; your computer does the work.
 
 ## The whole workflow
 
-1. **Import clips** from your computer.
-2. **Keep the good parts** with start/end trims. Mute a clip if you like.
-3. **Put them in order** using Earlier / Later in the storyboard.
-4. **Play movie** to preview the sequence.
-5. **Export movie**, then download your MP4.
+1. **Import video, music, or voice** from your computer.
+2. **Video track:** drag clips into order, drag their edges to trim, split at the
+   playhead, and reorder by dragging.
+3. **Audio track:** each video's original sound appears as a linked strip you can
+   mute or detach; music and voice recordings can be placed anywhere in the movie
+   with their own volume.
+4. **Effects track:** add timed Brightness, Contrast, Grayscale, or Sepia ranges
+   and drag them to the exact part of the movie.
+5. **Play** the full sequence with the synced playhead, then **Export movie** and
+   download your MP4.
 
-Save a project when you want to continue later. Your original videos are never
-changed. No accounts, cloud uploads, subscriptions, telemetry, or watermarks.
+Everything has a numeric alternative to dragging, plus undo/redo (Ctrl+Z /
+Ctrl+Shift+Z), split (S), and Space to play. Save a project when you want to
+continue later. Your original files are never changed. No accounts, cloud
+uploads, subscriptions, telemetry, or watermarks.
 
 ### Included
 
-- Dark interface with familiar preview, clip list, and ordered storyboard.
-- Straight cuts, trimming by seconds or playhead, reordering, and per-clip mute.
-- 720p / 1080p MP4 export: H.264 video, AAC stereo audio, 30 fps.
-- Mixed resolutions, frame rates, and silent clips normalized automatically.
-- Portrait clips fit inside a 16:9 movie with black bars; no surprise cropping.
+- Dark interface with a real three-track timeline: **Video · Audio · Effects**.
+- Proportional clip blocks with thumbnails, ruler, draggable playhead, and zoom.
+- Drag to reorder and place, drag edges to trim, split at the playhead, and
+  per-clip volume/mute with detachable original sound.
+- Independent music/voice clips with gain, mixed additively with a limiter.
+- Static timed effects (brightness, contrast, grayscale, sepia) in both live
+  preview and export — applied over exact movie-time ranges.
+- 720p / 1080p MP4 export: H.264 video, AAC stereo audio, exact 30 fps.
+- Mixed resolutions, frame rates, silent clips, and portrait video handled.
 - Export progress and cancellation; editing can continue during an export.
-- Plain JSON projects and a scriptable CLI, usable by people and coding agents.
+- Plain versioned JSON projects and a scriptable CLI for people and agents.
+- Undo/redo for edits; source files are never modified.
 
-**Intentionally not included:** animations, transitions, effects, titles, still
-photos, music tracks, multitrack editing, or a complicated timeline. This is a
-first release for simple clip-based movies, not a replacement for a professional editor.
+**Intentionally not included:** animations, transitions, animated effects, titles,
+photos, multitrack video overlays, or a professional-grade timeline. This stays a
+small, understandable editor for simple movies.
 
 ## Install & open
 

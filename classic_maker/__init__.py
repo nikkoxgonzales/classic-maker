@@ -1,2 +1,2 @@
-"""Classic Maker — simple, local, straight-cut video editing."""
-__version__ = '0.1.0'
+"""Classic Maker — simple, local, three-track video editing."""
+__version__ = '0.2.0'

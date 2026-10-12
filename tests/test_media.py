@@ -34,9 +34,10 @@ class MediaTests(unittest.TestCase):
         cls.directory.cleanup()
 
     def project(self):
-        return {'version': 1, 'name': 'A small movie', 'clips': [
+        return {'version': 2, 'name': 'A small movie', 'tracks': {'video': [
             {**probe(self.blue), 'start': 0.2, 'end': 0.6},
-            {**probe(self.red), 'start': 0.2, 'end': 0.8}], 'output': {'resolution': '720p', 'fps': 30}}
+            {**probe(self.red), 'start': 0.2, 'end': 0.8}], 'audio': [], 'effects': []},
+            'output': {'resolution': '720p', 'fps': 30}}
 
     def test_trim_reorder_and_silent_portrait_export(self):
         before = hashlib.sha256(self.red.read_bytes()).digest()
@@ -72,7 +73,7 @@ class MediaTests(unittest.TestCase):
                 '-f', 'lavfi', '-i', 'sine=frequency=440:duration=4',
                 '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', str(source))
             project = self.project()
-            project['clips'] = [probe(source), probe(self.blue)]
+            project['tracks']['video'] = [probe(source), probe(self.blue)]
             output = Path(temporary) / 'joined.mp4'
             render(project, output)
             inspection = subprocess.run([ffmpeg_exe(), '-hide_banner', '-loglevel', 'info', '-i', str(output),
@@ -86,7 +87,8 @@ class MediaTests(unittest.TestCase):
 
     def test_mute_removes_source_audio(self):
         project = self.project()
-        project['clips'] = [{**project['clips'][1], 'muted': True}]
+        project['tracks']['video'] = [project['tracks']['video'][1]]
+        project['tracks']['video'][0]['muted'] = True
         with tempfile.TemporaryDirectory(dir=self.root) as temporary:
             output = Path(temporary) / 'muted.mp4'
             render(project, output)
@@ -97,15 +99,86 @@ class MediaTests(unittest.TestCase):
         for start, end in [(-1, 0.5), (0.5, 0.5), (0.6, 0.2), (0, 2), (float('nan'), 1), (0, float('inf')), (False, 1)]:
             with self.subTest(start=start, end=end):
                 project = self.project()
-                project['clips'][0].update(start=start, end=end)
+                project['tracks']['video'][0].update(start=start, end=end)
                 with self.assertRaises(MakerError):
                     validate_project(project)
 
     def test_relative_paths_are_resolved_against_project_directory(self):
         project = self.project()
-        project['clips'][0]['path'] = self.blue.name
+        project['tracks']['video'][0]['path'] = self.blue.name
         normalized = validate_project(project, self.root)
-        self.assertEqual(normalized['clips'][0]['path'], str(self.blue.resolve()))
+        self.assertEqual(normalized['tracks']['video'][0]['path'], str(self.blue.resolve()))
+
+    def test_v1_project_migrates_to_v2_tracks(self):
+        v1 = {'version': 1, 'name': 'Old', 'clips': [{**probe(self.red), 'start': 0, 'end': 0.5}],
+              'output': {'resolution': '720p', 'fps': 30}}
+        migrated = validate_project(v1)
+        self.assertEqual(migrated['version'], 2)
+        self.assertEqual(len(migrated['tracks']['video']), 1)
+        self.assertEqual(migrated['tracks']['audio'], [])
+        self.assertEqual(migrated['tracks']['effects'], [])
+        self.assertNotIn('clips', migrated)
+
+    def test_audio_only_media_probes_as_audio(self):
+        mp3 = self.root / 'sound.mp3'
+        run('-f', 'lavfi', '-i', 'sine=frequency=440:duration=1', '-c:a', 'libmp3lame', str(mp3))
+        info = probe(mp3)
+        self.assertEqual(info['kind'], 'audio')
+        self.assertTrue(info['hasAudio'])
+
+    def test_audio_track_validates_placement_volume_and_video_lane_rules(self):
+        mp3 = self.root / 'voice.mp3'
+        if not mp3.exists():
+            run('-f', 'lavfi', '-i', 'sine=frequency=440:duration=2', '-c:a', 'libmp3lame', str(mp3))
+        project = self.project()
+        project['tracks']['audio'] = [{'path': str(mp3), 'at': 0.5, 'volume': 0.4, 'start': 0.1, 'end': 1.5}]
+        validated = validate_project(project)
+        clip = validated['tracks']['audio'][0]
+        self.assertEqual((clip['at'], clip['volume'], clip['start'], clip['end']), (0.5, 0.4, 0.1, 1.5))
+        for bad in [{'volume': 1.5}, {'volume': -0.1}, {'at': -1}, {'start': 1.9, 'end': 0.2}]:
+            broken = self.project()
+            broken['tracks']['audio'] = [{**project['tracks']['audio'][0], **bad}]
+            with self.subTest(bad=bad), self.assertRaises(MakerError):
+                validate_project(broken)
+        wrong_lane = self.project()
+        wrong_lane['tracks']['video'] = [{**wrong_lane['tracks']['video'][0], 'path': str(mp3)}]
+        with self.assertRaises(MakerError):
+            validate_project(wrong_lane)
+
+    def test_independent_audio_renders_at_placement_with_gain(self):
+        mp3 = self.root / 'mix.mp3'
+        if not mp3.exists():
+            run('-f', 'lavfi', '-i', 'sine=frequency=880:duration=2', '-c:a', 'libmp3lame', str(mp3))
+        project = self.project()
+        project['tracks']['video'] = [{**probe(self.red), 'start': 0, 'end': 1, 'muted': True}]
+        project['tracks']['audio'] = [{'path': str(mp3), 'at': 0.5, 'volume': 1, 'start': 0, 'end': 1}]
+        with tempfile.TemporaryDirectory(dir=self.root) as temporary:
+            output = Path(temporary) / 'mixed.mp4'
+            render(project, output)
+            samples = array.array('h', run('-i', str(output), '-vn', '-ac', '1', '-ar', '48000', '-f', 's16le', 'pipe:1'))
+            def rms(a, b):
+                window = samples[int(a * 48000):int(b * 48000)]
+                return math.sqrt(sum(v * v for v in window) / len(window))
+            self.assertGreater(rms(0.55, 0.95), 300)   # independent audio present after placement
+            self.assertLess(rms(0.05, 0.35), 50)       # silent before its placement
+            self.assertAlmostEqual(probe(output)['duration'], 1.0, delta=0.12)
+
+    def test_timed_effect_changes_only_its_range(self):
+        project = self.project()
+        project['tracks']['video'] = [{**probe(self.blue), 'start': 0, 'end': 1}]
+        project['tracks']['effects'] = [{'id': 'gray', 'type': 'grayscale', 'at': 0.4, 'duration': 0.3, 'value': 1}]
+        with tempfile.TemporaryDirectory(dir=self.root) as temporary:
+            output = Path(temporary) / 'effected.mp4'
+            render(project, output)
+            def color(at):
+                raw = run('-ss', str(at), '-i', str(output), '-frames:v', '1',
+                          '-vf', 'crop=2:2:iw/2:ih/2,scale=1:1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', 'pipe:1')
+                return raw[0], raw[1], raw[2]
+            before, during, after = color(0.15), color(0.55), color(0.85)
+            def spread(pixel): return max(pixel) - min(pixel)
+            self.assertGreater(spread(before), 40)      # blue still colorful
+            self.assertLess(spread(during), 12)         # grayscale only inside range
+            self.assertGreater(spread(after), 40)       # restored after range
 
     def test_original_is_never_an_export_destination(self):
         with self.assertRaisesRegex(MakerError, 'Source clips are never overwritten'):

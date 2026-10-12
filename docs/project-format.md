@@ -1,52 +1,69 @@
 # Projects, CLI, and local API
 
-Classic Maker uses readable versioned JSON. Clip array order is movie order. No
-hidden database or UI state is needed to render a project.
+Classic Maker uses readable versioned JSON. Version 2 separates the movie into
+three tracks; there is no hidden database or UI state needed to render a project.
 
-## Project format v1
+## Project format v2
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "name": "A weekend away",
-  "clips": [
-    {
-      "id": "first-clip",
-      "path": "videos/arrival.mp4",
-      "name": "Arrival",
-      "start": 0.5,
-      "end": 5.0,
-      "muted": false
-    },
-    {
-      "id": "second-clip",
-      "path": "videos/walk.mp4",
-      "name": "An afternoon walk",
-      "start": 2.0,
-      "end": 8.0,
-      "muted": true
-    }
-  ],
+  "tracks": {
+    "video": [
+      {"id": "v1", "path": "videos/arrival.mp4", "name": "Arrival",
+       "start": 0.5, "end": 5.0, "muted": false, "volume": 1.0}
+    ],
+    "audio": [
+      {"id": "a1", "path": "music/song.mp3", "name": "song.mp3",
+       "at": 2.0, "start": 0.0, "end": 6.0, "muted": false, "volume": 0.7}
+    ],
+    "effects": [
+      {"id": "e1", "type": "grayscale", "at": 3.0, "duration": 1.5, "value": 1}
+    ]
+  },
   "output": {"resolution": "720p", "fps": 30}
 }
 ```
 
-- `version` must be `1`. Maximum 1,000 clips. Empty projects can be saved/opened,
-  but cannot be exported.
+- `version` is `2`. Version-1 projects (`clips` array) are still accepted and
+  migrate to tracks on validation/open; saved projects are always v2.
+- **Video track:** clips are contiguous and ordered by array position — clip `i+1`
+  starts where clip `i` ends; there are no gaps or video overlays. Maximum 1,000.
+- **Audio track:** each clip has `at` (movie seconds where it starts), `start`/
+  `end` (source trim), `volume` 0–1, and `muted`. Clips may overlap; overlapping
+  audio is mixed additively and limited to avoid clipping. Maximum 64. Audio must
+  reference a source with an audio stream. Detached video sound keeps `videoId`.
+- **Effects track:** `type` is `brightness` (-1..1), `contrast` (0..2),
+  `grayscale` (0..1), or `sepia` (0..1); `at` is movie seconds, `duration` > 0.
+  Maximum 256. Overlapping effects apply in array order. Effects are static
+  (held for their range), never animated or transitioned.
+- Movie duration is the sum of video clip lengths. Audio/effects beyond that
+  end remain in the project but are clipped out of preview and export.
 - `path` is a local file, not a URL. CLI relative paths resolve against the JSON
-  file's directory. Browser-created projects use absolute persistent-storage paths;
-  the HTTP API resolves relative paths against the server's working directory.
-- `start` and `end` are finite seconds. `0 ≤ start < end ≤ source duration`.
-  End is exclusive; FFmpeg rounds to video/audio sampling boundaries. Export
-  duration can differ slightly due to frame boundaries and AAC packet timing.
-- `muted` is a boolean. The original audio is preserved unless muted; missing
-  audio becomes silence so differently sourced clips join consistently.
-- `id` identifies the clip in the project. Missing or duplicate IDs are regenerated.
-- `name` is a display label; the media path determines the source.
-- `resolution` is `720p` or `1080p`. `fps` is `30`. Export always uses H.264/AAC
-  stereo MP4, 16:9 canvas, black-bar fitting, and square pixels.
-- `probe` and HTTP project validation also return derived `duration` and `hasAudio`;
-  these are recomputed from the source, never trusted as project instructions.
+  file's directory; browser-created projects use absolute storage paths.
+- `start`/`end` are finite source seconds with `0 ≤ start < end ≤ source
+  duration`. All time fields are rounded to 0.01 s in saved projects.
+- `id` identifies an item; missing/duplicate IDs are regenerated on validation.
+- Derived `duration`/`hasAudio`/`kind` are recomputed from the source, never
+  trusted as project instructions.
+- `output.resolution` is `720p` or `1080p`; `fps` is `30`. Exports are 16:9
+  H.264/AAC MP4 with black-bar fitting and square pixels.
+
+### Example (CLI)
+
+```json
+{
+  "version": 2,
+  "name": "Holiday",
+  "tracks": {
+    "video": [{"path": "holiday.mp4", "start": 1.0, "end": 6.0}],
+    "audio": [],
+    "effects": [{"type": "brightness", "at": 0, "duration": 2, "value": 0.2}]
+  },
+  "output": {"resolution": "720p", "fps": 30}
+}
+```
 
 ## CLI
 
@@ -62,7 +79,8 @@ python -m classic_maker render movie.classic-maker.json -o finished.mp4 --overwr
 python -m classic_maker serve --no-browser --port 8765
 ```
 
-- `probe`: JSON clip plus source duration/audio availability on stdout.
+- `probe`: JSON clip plus `kind` (`video`/`audio`), source duration, and audio
+  availability on stdout.
 - `render`: on success prints `{"output":"absolute/path/to/finished.mp4"}`.
   Progress goes to stderr. The destination's parent folder must already exist.
 - Exit code `0` means success; editing/media errors return `1`; interrupted CLI
@@ -90,7 +108,8 @@ clip["start"] = 1.0
 clip["end"] = min(clip["duration"], 6.0)
 if clip["end"] <= clip["start"]:
     raise ValueError("The source is too short for this trim")
-project = {"version": 1, "name": "Holiday", "clips": [clip],
+project = {"version": 2, "name": "Holiday",
+           "tracks": {"video": [clip], "audio": [], "effects": []},
            "output": {"resolution": "720p", "fps": 30}}
 Path("holiday.classic-maker.json").write_text(json.dumps(project, indent=2), encoding="utf-8")
 subprocess.run([sys.executable, "-m", "classic_maker", "render",
@@ -109,10 +128,11 @@ there is no CORS access or remote-server mode.
 |---|---|---|
 | `GET /api/config` | — | `token`, `version`, `ffmpegAvailable`, `dataDir` |
 | `POST /api/setup` | `{}` | Explicit direct-from-PyPI FFmpeg setup; `ok`, `ffmpeg` |
-| `POST /api/import?name=filename.mp4` | Raw video bytes, Content-Length | Probed clip; persisted media copy |
-| `POST /api/probe` | `{"path":"absolute/local/file.mp4"}` | Probed clip; registers preview access |
-| `POST /api/project` | Project JSON | Validated project; registers preview access |
+| `POST /api/import?name=filename.mp4` | Raw video/audio bytes, Content-Length | Probed clip with `kind`; persisted media copy |
+| `POST /api/probe` | `{"path":"absolute/local/media"}` | Probed clip; registers preview access |
+| `POST /api/project` | Project JSON (v1 or v2) | Validated v2 project; registers video/audio paths |
 | `GET /api/media?path=...` | URL-encoded registered path | Media bytes; supports a single byte range |
+| `GET /api/thumbnail?path=...` | URL-encoded registered video path | 160×90 PNG frame, cached by file identity |
 | `POST /api/export` | Project JSON | HTTP 202, `{"id":"job-id"}` |
 | `GET /api/jobs/job-id` | — | `id`, `status`, `progress`, optional `error` or `download` |
 | `POST /api/cancel` | `{"id":"job-id"}` | `{"ok":true}` |

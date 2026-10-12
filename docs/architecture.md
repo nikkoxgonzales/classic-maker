@@ -8,37 +8,44 @@ frontend build step, database, or cloud backend.
 | Module | Responsibility |
 |---|---|
 | `classic_maker/__main__.py` | CLI dispatch, launcher, JSON stdout, error exit codes |
-| `classic_maker/media.py` | FFmpeg resolution/probe, project validation, cut/normalize/concat, cancellation |
-| `classic_maker/server.py` | Local HTTP boundary, persistent imports, range streaming, async export jobs |
+| `classic_maker/media.py` | FFmpeg resolution/probe, v2 track validation + v1 migration, per-clip effect/transcode, audio mix, cancellation |
+| `classic_maker/server.py` | Local HTTP boundary, persistent imports, range streaming, thumbnails, async export jobs |
 | `classic_maker/settings.py` | Platform-native user storage directory |
 | `classic_maker/setup.py` | User-requested HTTPS FFmpeg wheel download and SHA-256 verification |
-| `classic_maker/web/` | UI, browser project state, native video preview, storyboard, About, original SVG logo |
+| `classic_maker/web/` | Three-track timeline UI, playback sync, project state, About, original SVG logo |
 | `scripts/build_portable.py` | PyInstaller archive with Python runtime and local UI, not FFmpeg |
 | `tests/test_media.py` | Real-FFmpeg consumer-visible media regressions |
 
 ## Data flow
 
 1. Browser imports stream to unique local `media/` files, without loading a whole
-   source video into server memory. FFmpeg reads metadata; the UI gets a clip.
-2. Edits live in browser memory. Save project serializes the v1 JSON format.
-   Open project re-probes every distinct source before accepting its trims.
-3. Preview streams registered sources with HTTP byte-range support. Native
-   playback uses source codecs and trim boundaries; sequential preview switches
-   sources rather than encoding a temporary preview movie.
-4. Export takes a validated snapshot and transcodes each trim to matching H.264
-   video and AAC audio in a temporary directory. Missing/muted audio becomes
+   source video into server memory. FFmpeg reads metadata (video or audio) and
+   first-frame thumbnails; the UI gets a clip.
+2. Edits live in browser memory across three tracks: contiguous video, positioned
+   audio, and timed static effects. Save project serializes v2 JSON; open project
+   re-probes every distinct source and migrates v1 projects before accepting edits.
+3. Preview streams registered sources with HTTP byte-range support. Native video
+   playback is synchronized to a global movie clock; independent audio elements
+   and CSS filters follow the same clock, pausing during video buffering rather
+   than drifting ahead.
+4. Export takes a validated snapshot and transcodes each video trim to H.264 +
+   PCM audio in a NUT temporary file, applying that clip's overlapping effects in
+   clip-local time (movie time minus clip start). Missing/muted audio becomes
    silence. Every clip fits the same canvas, frame rate, audio rate, and channels.
-5. A generated concat list joins normalized clips. A final video encode enforces
-   even 30 fps spacing despite AAC packet-tail timing; audio is copied. This costs
-   a second video pass but avoids unsafe overlapping packet timestamps.
-   `+faststart` moves MP4 metadata forward. Only a complete result is published.
+5. A generated concat list with declared trim durations joins clips. Independent
+   audio clips are normalized to PCM WAVs first (one input each, keeping the
+   command line small), then mixed at their movie offsets with `amix` and a
+   limiter. The final pass enforces exact 30 fps video and encodes AAC.
+   Only a complete result is published; `+faststart` moves MP4 metadata forward.
 6. The browser polls an in-memory job for progress and downloads the completed
    output. The CLI calls the same renderer synchronously.
 
 ## Invariants
 
 - Source files are never changed. Existing output replacement is explicit.
-- Clip array order, trim seconds, and mute state define the movie.
+- Video clip array order defines the contiguous picture timeline; audio `at` and
+  effect `at`/`duration` are movie-time positions. Effects are static holds, never
+  animated; no transitions or CSS/JS UI animations.
 - Derived metadata is re-read from media, not trusted from project JSON.
 - FFmpeg receives argument arrays, never shell commands. Input paths are local;
   FFmpeg's input protocol whitelist excludes network fetching.
@@ -54,7 +61,6 @@ frontend build step, database, or cloud backend.
   no arbitrary static file serving or directory traversal.
 - Imported copies and complete exports are persistent; jobs and browser edits
   are not. Automatic deletion could break saved projects and is intentionally absent.
-- No CSS/JS animations or effects. Keep the primary workflow small.
 
 ## Limits
 

@@ -3,16 +3,18 @@ from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import hashlib
 import mimetypes
 from pathlib import Path
 import secrets
 import threading
+import subprocess
 from urllib.parse import parse_qs, urlsplit
 import uuid
 import webbrowser
 
 from . import __version__
-from .media import MakerError, ffmpeg_exe, probe, render, validate_project
+from .media import MakerError, ffmpeg_exe, probe, process_options, render, validate_project
 from .settings import data_directory
 from .setup import install_ffmpeg
 
@@ -27,12 +29,14 @@ class EditorServer(ThreadingHTTPServer):
         self.data = data_directory()
         (self.data / 'media').mkdir(parents=True, exist_ok=True)
         (self.data / 'exports').mkdir(exist_ok=True)
+        (self.data / 'thumbnails').mkdir(exist_ok=True)
         self.allowed = set()
         self.jobs = {}
         self.lock = threading.Lock()
         self.stopping = False
         self.export_lock = threading.Lock()
         self.setup_lock = threading.Lock()
+        self.thumbnail_lock = threading.Lock()
         self.web = Path(__file__).parent / 'web'
 
     def shutdown_jobs(self):
@@ -153,6 +157,28 @@ class Handler(BaseHTTPRequestHandler):
                 if str(path) not in self.server.allowed or not path.is_file():
                     raise MakerError('Import this clip or open its project before previewing it.')
                 self.file(path)
+            elif route == '/api/thumbnail':
+                path = Path(parse_qs(parsed.query).get('path', [''])[0]).resolve()
+                if str(path) not in self.server.allowed or not path.is_file():
+                    raise MakerError('Import this clip or open its project before previewing it.')
+                stat = path.stat()
+                key = hashlib.sha256(f'{path}:{stat.st_size}:{stat.st_mtime_ns}'.encode()).hexdigest()
+                image = self.server.data / 'thumbnails' / f'{key}.png'
+                with self.server.thumbnail_lock:
+                    if not image.is_file():
+                        temporary = image.with_name(f'{key}-{uuid.uuid4().hex}.png')
+                        try:
+                            result = subprocess.run(
+                                [ffmpeg_exe(), '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+                                 '-protocol_whitelist', 'file,pipe', '-i', str(path), '-an', '-frames:v', '1',
+                                 '-vf', 'scale=160:90:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=160:90:(ow-iw)/2:(oh-ih)/2',
+                                 '-update', '1', str(temporary)], capture_output=True, timeout=20, **process_options())
+                            if result.returncode or not temporary.is_file():
+                                raise MakerError('A thumbnail is not available for this media.')
+                            temporary.replace(image)
+                        finally:
+                            temporary.unlink(missing_ok=True)
+                self.file(image)
             elif route.startswith('/api/jobs/') or route.startswith('/api/download/'):
                 identifier = route.rsplit('/', 1)[-1]
                 with self.server.lock:
@@ -170,7 +196,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond({'error': 'Not found.'}, 404)
         except (BrokenPipeError, ConnectionResetError):
             pass
-        except (MakerError, OSError, ValueError) as exc:
+        except (MakerError, OSError, ValueError, subprocess.TimeoutExpired) as exc:
             self.respond({'error': str(exc)}, 400)
 
     def do_POST(self):
@@ -217,11 +243,11 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(clip)
             elif route == '/api/project':
                 project = validate_project(self.json_body())
-                self.server.allowed.update(c['path'] for c in project['clips'])
+                self.server.allowed.update(c['path'] for lane in ('video', 'audio') for c in project['tracks'][lane])
                 self.respond(project)
             elif route == '/api/export':
                 project = validate_project(self.json_body())
-                if not project['clips']:
+                if not project['tracks']['video']:
                     raise MakerError('Import at least one clip before exporting.')
                 if not self.server.export_lock.acquire(blocking=False):
                     raise MakerError('A movie is already exporting. Wait for it or cancel it first.')
